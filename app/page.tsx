@@ -54,7 +54,7 @@ export default function Home() {
       `Name: ${name}`,
       `Phone: ${phone}`,
       `Fulfillment: ${fulfillment}`,
-      fulfillment === "Delivery" ? `Delivery Address: ${deliveryAddress}` : "",
+      fulfillment === "Delivery" ? `Delivery Address: ${deliveryAddress}\n  Maps: https://maps.apple.com/?q=${encodeURIComponent(deliveryAddress)}\n  Google: https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(deliveryAddress)}` : "",
       `Pickup Date & Time: ${pickupDate} at ${pickupTime}`,
       `Payment: ${payment}`,
       ``,
