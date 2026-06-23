@@ -101,7 +101,7 @@ export default function Home() {
       total > 0 ? `Subtotal: $${total}` : "",
       ``,
       `Date:     ${pickupDate ? pickupDate.split("-").slice(1).concat(pickupDate.split("-")[0]).join("-") : ""}`,
-      `Time:     ${pickupTime}`,
+      `Time:     ${pickupTime ? (() => { const [h, m] = pickupTime.split(":").map(Number); const ampm = h >= 12 ? "PM" : "AM"; const h12 = h % 12 || 12; return `${h12}:${String(m).padStart(2, "0")} ${ampm}`; })() : ""}`,
       `Method:   ${fulfillment}`,
     ];
 
