@@ -100,7 +100,7 @@ export default function Home() {
       orderLines,
       total > 0 ? `Subtotal: $${total}` : "",
       ``,
-      `Date:     ${pickupDate}`,
+      `Date:     ${pickupDate ? pickupDate.split("-").slice(1).concat(pickupDate.split("-")[0]).join("-") : ""}`,
       `Time:     ${pickupTime}`,
       `Method:   ${fulfillment}`,
     ];
