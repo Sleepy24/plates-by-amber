@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { MenuSection } from "@/lib/menu";
 import { defaultMenu } from "@/lib/menu";
 
 type CartItem = { name: string; price: number; qty: number };
+type AddressSuggestion = { display_name: string; place_id: number };
 
 export default function Home() {
   const [menuData, setMenuData] = useState<MenuSection[]>(defaultMenu);
@@ -13,6 +14,9 @@ export default function Home() {
   const [phone, setPhone] = useState("");
   const [fulfillment, setFulfillment] = useState<"Pickup" | "Delivery">("Pickup");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const addressDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pickupDate, setPickupDate] = useState("");
   const [pickupTime, setPickupTime] = useState("");
   const [payment, setPayment] = useState("Cashapp");
@@ -22,6 +26,29 @@ export default function Home() {
   useEffect(() => {
     fetch("/api/menu").then((r) => r.json()).then(setMenuData).catch(() => {});
   }, []);
+
+  function handleAddressInput(value: string) {
+    setDeliveryAddress(value);
+    setShowSuggestions(true);
+    if (addressDebounce.current) clearTimeout(addressDebounce.current);
+    if (value.length < 3) { setAddressSuggestions([]); return; }
+    addressDebounce.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=us&q=${encodeURIComponent(value)}`,
+          { headers: { "Accept-Language": "en" } }
+        );
+        const data = await res.json();
+        setAddressSuggestions(data);
+      } catch { setAddressSuggestions([]); }
+    }, 350);
+  }
+
+  function selectAddress(addr: string) {
+    setDeliveryAddress(addr);
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
+  }
 
   function addToCart(item: { name: string; price: number }) {
     setCart((prev) => {
@@ -47,23 +74,42 @@ export default function Home() {
   const total = cart.reduce((sum, c) => sum + c.price * c.qty, 0);
 
   function handleOrder() {
-    const orderLines = cart.map((c) => `  - ${c.name}${c.price > 0 ? ` x${c.qty} ($${c.price * c.qty})` : ""}`).join("\n");
-    const body = [
-      `Hi Amber! I'd like to place an order:`,
-      ``,
-      `Name: ${name}`,
-      `Phone: ${phone}`,
-      `Fulfillment: ${fulfillment}`,
-      fulfillment === "Delivery" ? `Delivery Address: ${deliveryAddress}\n  Maps: https://maps.apple.com/?q=${encodeURIComponent(deliveryAddress)}\n  Google: https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(deliveryAddress)}` : "",
-      `Pickup Date & Time: ${pickupDate} at ${pickupTime}`,
-      `Payment: ${payment}`,
-      ``,
-      `Order:`,
-      orderLines,
-      total > 0 ? `\nTotal: $${total}` : "",
-      specialRequests ? `\nSpecial Requests: ${specialRequests}` : "",
-    ].filter(Boolean).join("\n");
+    const orderLines = cart.map((c) =>
+      `   • ${c.name}${c.price > 0 ? ` x${c.qty} — $${c.price * c.qty}` : ""}`
+    ).join("\n");
 
+    const lines: string[] = [
+      `🍽️ NEW ORDER — Plates by Amber`,
+      `━━━━━━━━━━━━━━━━━━━`,
+      `👤 Name:     ${name}`,
+      `📞 Phone:    ${phone}`,
+      ``,
+      `📦 ORDER`,
+      orderLines,
+      total > 0 ? `💰 Subtotal: $${total}` : "",
+      ``,
+      `📅 Date:     ${pickupDate}`,
+      `⏰ Time:     ${pickupTime}`,
+      `🚗 Method:   ${fulfillment}`,
+    ];
+
+    if (fulfillment === "Delivery") {
+      lines.push(`📍 Address:  ${deliveryAddress}`);
+      lines.push(`   Apple Maps: https://maps.apple.com/?q=${encodeURIComponent(deliveryAddress)}`);
+      lines.push(`   Google Maps: https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(deliveryAddress)}`);
+    }
+
+    lines.push(`💳 Payment:  ${payment}`);
+
+    if (specialRequests) {
+      lines.push(``);
+      lines.push(`📝 Special Requests:`);
+      lines.push(`   ${specialRequests}`);
+    }
+
+    lines.push(`━━━━━━━━━━━━━━━━━━━`);
+
+    const body = lines.filter((l) => l !== null && l !== undefined).join("\n");
     const smsUrl = `sms:5626677845?body=${encodeURIComponent(body)}`;
     window.open(smsUrl, "_blank");
     setSubmitted(true);
@@ -98,7 +144,7 @@ export default function Home() {
             <p className="text-4xl mb-4">🎉</p>
             <h3 className="text-2xl font-bold text-amber-300 mb-2">Order Ready to Send!</h3>
             <p className="text-amber-100 mb-6">Your texting app should have opened with your order pre-filled. Just hit send!</p>
-            <button onClick={() => { setSubmitted(false); setCart([]); setName(""); setPhone(""); setPickupDate(""); setPickupTime(""); setSpecialRequests(""); setDeliveryAddress(""); }} className="bg-amber-400 hover:bg-amber-300 text-black font-bold px-6 py-3 rounded-full transition-colors">
+            <button onClick={() => { setSubmitted(false); setCart([]); setName(""); setPhone(""); setPickupDate(""); setPickupTime(""); setSpecialRequests(""); setDeliveryAddress(""); setAddressSuggestions([]); }} className="bg-amber-400 hover:bg-amber-300 text-black font-bold px-6 py-3 rounded-full transition-colors">
               Place Another Order
             </button>
           </div>
@@ -181,14 +227,30 @@ export default function Home() {
 
                 {fulfillment === "Delivery" && (
                   <div className="space-y-3">
-                    <div>
+                    <div className="relative">
                       <label className="block text-amber-400 text-sm mb-1">Delivery Address *</label>
                       <input
                         value={deliveryAddress}
-                        onChange={(e) => setDeliveryAddress(e.target.value)}
-                        placeholder="123 Main St, City, CA 12345"
+                        onChange={(e) => handleAddressInput(e.target.value)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                        onFocus={() => addressSuggestions.length > 0 && setShowSuggestions(true)}
+                        placeholder="Start typing your address..."
+                        autoComplete="off"
                         className="w-full bg-[#1a0a00] border border-amber-800 rounded-lg px-4 py-2 text-amber-100 placeholder-amber-900 focus:outline-none focus:border-amber-400"
                       />
+                      {showSuggestions && addressSuggestions.length > 0 && (
+                        <ul className="absolute z-10 w-full mt-1 bg-[#2e1200] border border-amber-700 rounded-lg overflow-hidden shadow-xl">
+                          {addressSuggestions.map((s) => (
+                            <li
+                              key={s.place_id}
+                              onMouseDown={() => selectAddress(s.display_name)}
+                              className="px-4 py-2.5 text-amber-100 text-sm hover:bg-[#3b1800] cursor-pointer border-b border-amber-900 last:border-0"
+                            >
+                              {s.display_name}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                     <div className="bg-[#1a0a00] border border-amber-900 rounded-xl p-4">
                       <p className="text-amber-400 text-sm font-semibold mb-2">🚗 Delivery Fee Structure</p>
