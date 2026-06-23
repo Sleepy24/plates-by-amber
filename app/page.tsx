@@ -1,91 +1,13 @@
 "use client";
 
-import { useState } from "react";
-
-const menuData = [
-  {
-    day: "Monday",
-    theme: "Pasta Monday",
-    items: [
-      { name: "Chicken Alfredo", price: 15 },
-      { name: "Shrimp Alfredo", price: 18 },
-      { name: "Lamb Chop Alfredo", price: 25 },
-      { name: "Chicken Rasta Pasta", price: 16 },
-      { name: "Shrimp Rasta Pasta", price: 18 },
-      { name: "Lamb Chop Rasta Pasta", price: 25 },
-    ],
-    note: "All pasta plates served with garlic bread.",
-  },
-  {
-    day: "Tuesday",
-    theme: "Munchie Tuesdays",
-    items: [
-      { name: "Classic Munchie Box (Cheeseburger, Loaded Bacon Cheese Fries, 3 Hot Cheeto Mozzarella Sticks)", price: 17 },
-      { name: "Deluxe Munchie Box (Choice of Cheeseburger or 2 Hot Cheeto Birria Balls + Fries, 3 Mozz Sticks, 3 Wings)", price: 20 },
-    ],
-    note: "Add-Ons: Double Cheeseburger +$3 · 2 Birria Balls +$4 · 3 Wings +$5 · Mozzarella Stick +$2",
-  },
-  {
-    day: "Wednesday",
-    theme: "Wing Wednesday",
-    items: [
-      { name: "6 Piece Wing Combo (fries, Cajun corn & drink)", price: 15 },
-      { name: "10 Piece Wing Combo (fries, Cajun corn & drink)", price: 19 },
-      { name: "12 Piece Wing Combo (fries, Cajun corn & drink)", price: 21 },
-    ],
-    note: "Upgrade to loaded bacon cheese fries +$2",
-  },
-  {
-    day: "Thursday",
-    theme: "Stuffed Salmon Thursday",
-    items: [
-      { name: "Baked Salmon", price: 24 },
-      { name: "Spinach & Cream Cheese Stuffed Salmon", price: 27 },
-      { name: "Crab Stuffed Salmon", price: 30 },
-      { name: "Spinach & Crab Stuffed Salmon", price: 32 },
-    ],
-    note: "Served with Mashed Potatoes & Green Beans.",
-  },
-  {
-    day: "Friday",
-    theme: "Fan Favorite Friday",
-    items: [
-      { name: "Birria Ball Alfredo Plate (2 Birria Balls & Alfredo Pasta)", price: 15 },
-      { name: "Sampler Plate (2 Birria Balls, 4 Wings & Alfredo Pasta)", price: 20 },
-      { name: "Birria Balls À La Carte (2 Birria Balls, no pasta)", price: 0 },
-    ],
-  },
-  {
-    day: "Saturday",
-    theme: "Customers Choice",
-    items: [],
-    note: "Choose from any meal featured Monday–Friday. Pre-orders MUST be made at least 24 hours in advance.",
-  },
-  {
-    day: "Sunday",
-    theme: "Soulfood Sunday",
-    items: [
-      { name: "Baked Chicken (2 sides & cornbread)", price: 18 },
-      { name: "Smothered Chicken (2 sides & cornbread)", price: 20 },
-      { name: "Fried Catfish (2 sides & cornbread)", price: 20 },
-      { name: "Salmon (2 sides & cornbread)", price: 24 },
-    ],
-    note: "Available 1st & 3rd Sunday only. Sides: Mac & Cheese, Collard Greens, Candied Yams. Add drink +$1",
-  },
-  {
-    day: "Kids & Lite Bites",
-    theme: "Budget-friendly options",
-    items: [
-      { name: "Alfredo Pasta (Add Chicken +$2)", price: 8 },
-      { name: "Wings & Fries (4 wings + fries)", price: 8 },
-      { name: "Cheeseburger & Fries (ketchup, mayo, lettuce, pickles & tomato)", price: 8 },
-    ],
-  },
-];
+import { useState, useEffect } from "react";
+import type { MenuSection } from "@/lib/menu";
+import { defaultMenu } from "@/lib/menu";
 
 type CartItem = { name: string; price: number; qty: number };
 
 export default function Home() {
+  const [menuData, setMenuData] = useState<MenuSection[]>(defaultMenu);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -95,6 +17,10 @@ export default function Home() {
   const [payment, setPayment] = useState("Cashapp");
   const [specialRequests, setSpecialRequests] = useState("");
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/menu").then((r) => r.json()).then(setMenuData).catch(() => {});
+  }, []);
 
   function addToCart(item: { name: string; price: number }) {
     setCart((prev) => {
@@ -120,7 +46,7 @@ export default function Home() {
   const total = cart.reduce((sum, c) => sum + c.price * c.qty, 0);
 
   function handleOrder() {
-    const orderLines = cart.map((c) => `  - ${c.name}${c.price > 0 ? ` x${c.qty} ($${(c.price * c.qty)})` : ""}`).join("\n");
+    const orderLines = cart.map((c) => `  - ${c.name}${c.price > 0 ? ` x${c.qty} ($${c.price * c.qty})` : ""}`).join("\n");
     const body = [
       `Hi Amber! I'd like to place an order:`,
       ``,
@@ -176,10 +102,8 @@ export default function Home() {
           </div>
         ) : (
           <div className="space-y-8">
-
-            {/* Menu selection */}
-            {menuData.map((section) => (
-              <div key={section.day} className="bg-[#2e1200] border border-amber-900 rounded-2xl overflow-hidden">
+            {menuData.map((section, sIdx) => (
+              <div key={sIdx} className="bg-[#2e1200] border border-amber-900 rounded-2xl overflow-hidden">
                 <div className="bg-[#3b1800] px-6 py-4">
                   <span className="text-xl font-extrabold text-amber-300 uppercase tracking-wide">{section.day}</span>
                   <span className="ml-3 text-amber-500 italic">{section.theme}</span>
@@ -190,11 +114,12 @@ export default function Home() {
                   ) : (
                     <>
                       <ul className="space-y-3">
-                        {section.items.map((item) => (
-                          <li key={item.name} className="flex items-center justify-between gap-4">
+                        {section.items.map((item, iIdx) => (
+                          <li key={iIdx} className="flex items-center justify-between gap-4">
                             <div className="flex-1">
                               <span className="text-amber-100 text-sm">{item.name}</span>
                               {item.price > 0 && <span className="ml-2 text-amber-400 font-semibold">${item.price}</span>}
+                              {item.desc && <p className="text-amber-600 text-xs mt-0.5">{item.desc}</p>}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               {getQty(item.name) > 0 && (
@@ -215,7 +140,6 @@ export default function Home() {
               </div>
             ))}
 
-            {/* Cart summary */}
             {cart.length > 0 && (
               <div className="bg-[#3b1800] border border-amber-400 rounded-2xl px-6 py-5">
                 <h3 className="text-lg font-bold text-amber-300 mb-3">Your Order</h3>
@@ -231,10 +155,8 @@ export default function Home() {
               </div>
             )}
 
-            {/* Customer details */}
             <div className="bg-[#2e1200] border border-amber-900 rounded-2xl px-6 py-6 space-y-4">
               <h3 className="text-lg font-bold text-amber-300">Your Details</h3>
-
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-amber-400 text-sm mb-1">First & Last Name *</label>
@@ -245,7 +167,6 @@ export default function Home() {
                   <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="555-555-5555" className="w-full bg-[#1a0a00] border border-amber-800 rounded-lg px-4 py-2 text-amber-100 placeholder-amber-900 focus:outline-none focus:border-amber-400" />
                 </div>
               </div>
-
               <div>
                 <label className="block text-amber-400 text-sm mb-1">Pickup or Delivery? *</label>
                 <div className="flex gap-4">
@@ -256,7 +177,6 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-amber-400 text-sm mb-1">Desired Date *</label>
@@ -267,7 +187,6 @@ export default function Home() {
                   <input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="w-full bg-[#1a0a00] border border-amber-800 rounded-lg px-4 py-2 text-amber-100 focus:outline-none focus:border-amber-400" />
                 </div>
               </div>
-
               <div>
                 <label className="block text-amber-400 text-sm mb-1">Payment Method *</label>
                 <div className="flex gap-3 flex-wrap">
@@ -278,7 +197,6 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-
               <div>
                 <label className="block text-amber-400 text-sm mb-1">Special Requests</label>
                 <textarea value={specialRequests} onChange={(e) => setSpecialRequests(e.target.value)} placeholder="Allergies, sauce preferences, extra items, etc." rows={3} className="w-full bg-[#1a0a00] border border-amber-800 rounded-lg px-4 py-2 text-amber-100 placeholder-amber-900 focus:outline-none focus:border-amber-400 resize-none" />
