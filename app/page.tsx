@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import type { MenuSection } from "@/lib/menu";
 import { defaultMenu } from "@/lib/menu";
 
-type CartItem = { name: string; price: number; qty: number };
+type CartItem = { name: string; price: number; qty: number; note: string };
 type AddressSuggestion = { display_name: string; place_id: number };
 
 export default function Home() {
@@ -54,60 +54,70 @@ export default function Home() {
     setCart((prev) => {
       const existing = prev.find((c) => c.name === item.name);
       if (existing) return prev.map((c) => c.name === item.name ? { ...c, qty: c.qty + 1 } : c);
-      return [...prev, { ...item, qty: 1 }];
+      return [...prev, { ...item, qty: 1, note: "" }];
     });
   }
 
-  function removeFromCart(name: string) {
+  function removeFromCart(itemName: string) {
     setCart((prev) => {
-      const existing = prev.find((c) => c.name === name);
+      const existing = prev.find((c) => c.name === itemName);
       if (!existing) return prev;
-      if (existing.qty === 1) return prev.filter((c) => c.name !== name);
-      return prev.map((c) => c.name === name ? { ...c, qty: c.qty - 1 } : c);
+      if (existing.qty === 1) return prev.filter((c) => c.name !== itemName);
+      return prev.map((c) => c.name === itemName ? { ...c, qty: c.qty - 1 } : c);
     });
   }
 
-  function getQty(name: string) {
-    return cart.find((c) => c.name === name)?.qty ?? 0;
+  function updateItemNote(itemName: string, note: string) {
+    setCart((prev) => prev.map((c) => c.name === itemName ? { ...c, note } : c));
+  }
+
+  function getQty(itemName: string) {
+    return cart.find((c) => c.name === itemName)?.qty ?? 0;
   }
 
   const total = cart.reduce((sum, c) => sum + c.price * c.qty, 0);
 
   function handleOrder() {
-    const orderLines = cart.map((c) =>
-      `   • ${c.name}${c.price > 0 ? ` x${c.qty} — $${c.price * c.qty}` : ""}`
-    ).join("\n");
+    const orderLines = cart.map((c) => {
+      const line = `   - ${c.name}${c.price > 0 ? ` x${c.qty} ($${c.price * c.qty})` : ""}`;
+      const noteLine = c.note ? `     Note: ${c.note}` : "";
+      return noteLine ? `${line}\n${noteLine}` : line;
+    }).join("\n");
+
+    const itemNotes = cart.filter((c) => c.note);
+    const specialRequestsSection = [
+      ...itemNotes.map((c) => `   ${c.name}: ${c.note}`),
+      ...(specialRequests ? [`   General: ${specialRequests}`] : []),
+    ];
 
     const lines: string[] = [
-      `🍽️ NEW ORDER — Plates by Amber`,
-      `━━━━━━━━━━━━━━━━━━━`,
-      `👤 Name:     ${name}`,
-      `📞 Phone:    ${phone}`,
+      `NEW ORDER - Plates by Amber`,
+      `----------------------------`,
+      `Name:     ${name}`,
+      `Phone:    ${phone}`,
       ``,
-      `📦 ORDER`,
+      `ORDER`,
       orderLines,
-      total > 0 ? `💰 Subtotal: $${total}` : "",
+      total > 0 ? `Subtotal: $${total}` : "",
       ``,
-      `📅 Date:     ${pickupDate}`,
-      `⏰ Time:     ${pickupTime}`,
-      `🚗 Method:   ${fulfillment}`,
+      `Date:     ${pickupDate}`,
+      `Time:     ${pickupTime}`,
+      `Method:   ${fulfillment}`,
     ];
 
     if (fulfillment === "Delivery") {
-      lines.push(`📍 Address:  ${deliveryAddress}`);
-      lines.push(`   Apple Maps: https://maps.apple.com/?q=${encodeURIComponent(deliveryAddress)}`);
-      lines.push(`   Google Maps: https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(deliveryAddress)}`);
+      lines.push(`Address:  ${deliveryAddress}`);
     }
 
-    lines.push(`💳 Payment:  ${payment}`);
+    lines.push(`Payment:  ${payment}`);
 
-    if (specialRequests) {
+    if (specialRequestsSection.length > 0) {
       lines.push(``);
-      lines.push(`📝 Special Requests:`);
-      lines.push(`   ${specialRequests}`);
+      lines.push(`SPECIAL REQUESTS`);
+      lines.push(...specialRequestsSection);
     }
 
-    lines.push(`━━━━━━━━━━━━━━━━━━━`);
+    lines.push(`----------------------------`);
 
     const body = lines.filter((l) => l !== null && l !== undefined).join("\n");
     const smsUrl = `sms:5626677845?body=${encodeURIComponent(body)}`;
@@ -116,6 +126,18 @@ export default function Home() {
   }
 
   const canSubmit = name && phone && cart.length > 0 && pickupDate && pickupTime && (fulfillment === "Pickup" || deliveryAddress);
+
+  function resetForm() {
+    setSubmitted(false);
+    setCart([]);
+    setName("");
+    setPhone("");
+    setPickupDate("");
+    setPickupTime("");
+    setSpecialRequests("");
+    setDeliveryAddress("");
+    setAddressSuggestions([]);
+  }
 
   return (
     <main className="min-h-screen bg-[#1a0a00] text-white font-sans">
@@ -141,15 +163,16 @@ export default function Home() {
 
         {submitted ? (
           <div className="bg-[#2e1200] border border-amber-400 rounded-2xl p-10 text-center">
-            <p className="text-4xl mb-4">🎉</p>
             <h3 className="text-2xl font-bold text-amber-300 mb-2">Order Ready to Send!</h3>
             <p className="text-amber-100 mb-6">Your texting app should have opened with your order pre-filled. Just hit send!</p>
-            <button onClick={() => { setSubmitted(false); setCart([]); setName(""); setPhone(""); setPickupDate(""); setPickupTime(""); setSpecialRequests(""); setDeliveryAddress(""); setAddressSuggestions([]); }} className="bg-amber-400 hover:bg-amber-300 text-black font-bold px-6 py-3 rounded-full transition-colors">
+            <button onClick={resetForm} className="bg-amber-400 hover:bg-amber-300 text-black font-bold px-6 py-3 rounded-full transition-colors">
               Place Another Order
             </button>
           </div>
         ) : (
           <div className="space-y-8">
+
+            {/* Menu sections */}
             {menuData.map((section, sIdx) => (
               <div key={sIdx} className="bg-[#2e1200] border border-amber-900 rounded-2xl overflow-hidden">
                 <div className="bg-[#3b1800] px-6 py-4">
@@ -161,25 +184,39 @@ export default function Home() {
                     <p className="text-amber-500 text-sm">{section.note}</p>
                   ) : (
                     <>
-                      <ul className="space-y-3">
-                        {section.items.map((item, iIdx) => (
-                          <li key={iIdx} className="flex items-center justify-between gap-4">
-                            <div className="flex-1">
-                              <span className="text-amber-100 text-sm">{item.name}</span>
-                              {item.price > 0 && <span className="ml-2 text-amber-400 font-semibold">${item.price}</span>}
-                              {item.desc && <p className="text-amber-600 text-xs mt-0.5">{item.desc}</p>}
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {getQty(item.name) > 0 && (
-                                <>
-                                  <button onClick={() => removeFromCart(item.name)} className="w-7 h-7 rounded-full bg-amber-900 hover:bg-amber-700 text-white font-bold transition-colors flex items-center justify-center">−</button>
-                                  <span className="w-5 text-center text-amber-300 font-bold">{getQty(item.name)}</span>
-                                </>
+                      <ul className="space-y-4">
+                        {section.items.map((item, iIdx) => {
+                          const qty = getQty(item.name);
+                          const cartItem = cart.find((c) => c.name === item.name);
+                          return (
+                            <li key={iIdx}>
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="flex-1">
+                                  <span className="text-amber-100 text-sm">{item.name}</span>
+                                  {item.price > 0 && <span className="ml-2 text-amber-400 font-semibold">${item.price}</span>}
+                                  {item.desc && <p className="text-amber-600 text-xs mt-0.5">{item.desc}</p>}
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {qty > 0 && (
+                                    <>
+                                      <button onClick={() => removeFromCart(item.name)} className="w-7 h-7 rounded-full bg-amber-900 hover:bg-amber-700 text-white font-bold transition-colors flex items-center justify-center">−</button>
+                                      <span className="w-5 text-center text-amber-300 font-bold">{qty}</span>
+                                    </>
+                                  )}
+                                  <button onClick={() => addToCart(item)} className="w-7 h-7 rounded-full bg-amber-400 hover:bg-amber-300 text-black font-bold transition-colors flex items-center justify-center">+</button>
+                                </div>
+                              </div>
+                              {qty > 0 && (
+                                <input
+                                  value={cartItem?.note ?? ""}
+                                  onChange={(e) => updateItemNote(item.name, e.target.value)}
+                                  placeholder="Special requests for this item (optional)"
+                                  className="mt-2 w-full bg-[#1a0a00] border border-amber-900 rounded-lg px-3 py-1.5 text-amber-100 placeholder-amber-800 text-xs focus:outline-none focus:border-amber-600"
+                                />
                               )}
-                              <button onClick={() => addToCart(item)} className="w-7 h-7 rounded-full bg-amber-400 hover:bg-amber-300 text-black font-bold transition-colors flex items-center justify-center">+</button>
-                            </div>
-                          </li>
-                        ))}
+                            </li>
+                          );
+                        })}
                       </ul>
                       {section.note && <p className="text-amber-700 text-xs mt-4 pt-3 border-t border-amber-900">{section.note}</p>}
                     </>
@@ -188,14 +225,18 @@ export default function Home() {
               </div>
             ))}
 
+            {/* Cart summary */}
             {cart.length > 0 && (
               <div className="bg-[#3b1800] border border-amber-400 rounded-2xl px-6 py-5">
                 <h3 className="text-lg font-bold text-amber-300 mb-3">Your Order</h3>
                 <ul className="space-y-2 mb-3">
                   {cart.map((c) => (
-                    <li key={c.name} className="flex justify-between text-amber-100 text-sm">
-                      <span>{c.name} x{c.qty}</span>
-                      {c.price > 0 && <span className="text-amber-400">${c.price * c.qty}</span>}
+                    <li key={c.name}>
+                      <div className="flex justify-between text-amber-100 text-sm">
+                        <span>{c.name} x{c.qty}</span>
+                        {c.price > 0 && <span className="text-amber-400">${c.price * c.qty}</span>}
+                      </div>
+                      {c.note && <p className="text-amber-600 text-xs mt-0.5 ml-2">Note: {c.note}</p>}
                     </li>
                   ))}
                 </ul>
@@ -203,6 +244,7 @@ export default function Home() {
               </div>
             )}
 
+            {/* Customer details */}
             <div className="bg-[#2e1200] border border-amber-900 rounded-2xl px-6 py-6 space-y-4">
               <h3 className="text-lg font-bold text-amber-300">Your Details</h3>
               <div className="grid sm:grid-cols-2 gap-4">
@@ -215,6 +257,7 @@ export default function Home() {
                   <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="555-555-5555" className="w-full bg-[#1a0a00] border border-amber-800 rounded-lg px-4 py-2 text-amber-100 placeholder-amber-900 focus:outline-none focus:border-amber-400" />
                 </div>
               </div>
+
               <div>
                 <label className="block text-amber-400 text-sm mb-1">Pickup or Delivery? *</label>
                 <div className="flex gap-4 mb-3">
@@ -253,7 +296,7 @@ export default function Home() {
                       )}
                     </div>
                     <div className="bg-[#1a0a00] border border-amber-900 rounded-xl p-4">
-                      <p className="text-amber-400 text-sm font-semibold mb-2">🚗 Delivery Fee Structure</p>
+                      <p className="text-amber-400 text-sm font-semibold mb-2">Delivery Fee Structure</p>
                       <p className="text-amber-600 text-xs mb-3">Fees are based on driving distance from San Jacinto, CA. Amber will confirm your exact fee after you place your order.</p>
                       <div className="grid grid-cols-2 gap-y-1.5 gap-x-4 text-xs">
                         <span className="text-amber-300">0 – 5 miles</span><span className="text-amber-400 font-semibold">$3</span>
@@ -267,6 +310,7 @@ export default function Home() {
                   </div>
                 )}
               </div>
+
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-amber-400 text-sm mb-1">Desired Date *</label>
@@ -277,6 +321,7 @@ export default function Home() {
                   <input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="w-full bg-[#1a0a00] border border-amber-800 rounded-lg px-4 py-2 text-amber-100 focus:outline-none focus:border-amber-400" />
                 </div>
               </div>
+
               <div>
                 <label className="block text-amber-400 text-sm mb-1">Payment Method *</label>
                 <div className="flex gap-3 flex-wrap">
@@ -287,9 +332,10 @@ export default function Home() {
                   ))}
                 </div>
               </div>
+
               <div>
-                <label className="block text-amber-400 text-sm mb-1">Special Requests</label>
-                <textarea value={specialRequests} onChange={(e) => setSpecialRequests(e.target.value)} placeholder="Allergies, sauce preferences, extra items, etc." rows={3} className="w-full bg-[#1a0a00] border border-amber-800 rounded-lg px-4 py-2 text-amber-100 placeholder-amber-900 focus:outline-none focus:border-amber-400 resize-none" />
+                <label className="block text-amber-400 text-sm mb-1">General Special Requests</label>
+                <textarea value={specialRequests} onChange={(e) => setSpecialRequests(e.target.value)} placeholder="Any overall requests, allergies, or notes for the whole order" rows={3} className="w-full bg-[#1a0a00] border border-amber-800 rounded-lg px-4 py-2 text-amber-100 placeholder-amber-900 focus:outline-none focus:border-amber-400 resize-none" />
               </div>
             </div>
 
@@ -298,7 +344,7 @@ export default function Home() {
               disabled={!canSubmit}
               className="w-full bg-amber-400 hover:bg-amber-300 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-xl py-5 rounded-full transition-colors shadow-lg"
             >
-              {canSubmit ? "Submit Order via Text 📱" : "Fill out all required fields to order"}
+              {canSubmit ? "Submit Order via Text" : "Fill out all required fields to order"}
             </button>
           </div>
         )}
@@ -308,13 +354,13 @@ export default function Home() {
       <section className="bg-[#2e1200] px-6 py-12 text-center">
         <h2 className="text-2xl font-bold text-amber-300 mb-6">Get in Touch</h2>
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center text-amber-100">
-          <a href="tel:5626677845" className="hover:text-amber-300 transition-colors text-lg">📞 562-667-7845</a>
+          <a href="tel:5626677845" className="hover:text-amber-300 transition-colors text-lg">562-667-7845</a>
           <span className="hidden sm:inline text-amber-700">|</span>
-          <a href="https://www.tiktok.com/@platesbyamber" target="_blank" rel="noopener noreferrer" className="hover:text-amber-300 transition-colors text-lg">🎵 TikTok: @platesbyamber</a>
+          <a href="https://www.tiktok.com/@platesbyamber" target="_blank" rel="noopener noreferrer" className="hover:text-amber-300 transition-colors text-lg">TikTok: @platesbyamber</a>
         </div>
         <div className="mt-6 text-amber-500 text-sm space-y-1">
-          <p>💳 Cashapp: $platedbyamber &nbsp;·&nbsp; Zelle &amp; Apple Pay accepted</p>
-          <p>📍 Pickup: San Jacinto, CA &nbsp;·&nbsp; Delivery available on orders $25+</p>
+          <p>Cashapp: $platedbyamber &nbsp;·&nbsp; Zelle &amp; Apple Pay accepted</p>
+          <p>Pickup: San Jacinto, CA &nbsp;·&nbsp; Delivery available on orders $25+</p>
         </div>
       </section>
 
