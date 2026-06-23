@@ -12,6 +12,7 @@ export default function Home() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [fulfillment, setFulfillment] = useState<"Pickup" | "Delivery">("Pickup");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
   const [pickupDate, setPickupDate] = useState("");
   const [pickupTime, setPickupTime] = useState("");
   const [payment, setPayment] = useState("Cashapp");
@@ -53,6 +54,7 @@ export default function Home() {
       `Name: ${name}`,
       `Phone: ${phone}`,
       `Fulfillment: ${fulfillment}`,
+      fulfillment === "Delivery" ? `Delivery Address: ${deliveryAddress}` : "",
       `Pickup Date & Time: ${pickupDate} at ${pickupTime}`,
       `Payment: ${payment}`,
       ``,
@@ -67,7 +69,7 @@ export default function Home() {
     setSubmitted(true);
   }
 
-  const canSubmit = name && phone && cart.length > 0 && pickupDate && pickupTime;
+  const canSubmit = name && phone && cart.length > 0 && pickupDate && pickupTime && (fulfillment === "Pickup" || deliveryAddress);
 
   return (
     <main className="min-h-screen bg-[#1a0a00] text-white font-sans">
@@ -96,7 +98,7 @@ export default function Home() {
             <p className="text-4xl mb-4">🎉</p>
             <h3 className="text-2xl font-bold text-amber-300 mb-2">Order Ready to Send!</h3>
             <p className="text-amber-100 mb-6">Your texting app should have opened with your order pre-filled. Just hit send!</p>
-            <button onClick={() => { setSubmitted(false); setCart([]); setName(""); setPhone(""); setPickupDate(""); setPickupTime(""); setSpecialRequests(""); }} className="bg-amber-400 hover:bg-amber-300 text-black font-bold px-6 py-3 rounded-full transition-colors">
+            <button onClick={() => { setSubmitted(false); setCart([]); setName(""); setPhone(""); setPickupDate(""); setPickupTime(""); setSpecialRequests(""); setDeliveryAddress(""); }} className="bg-amber-400 hover:bg-amber-300 text-black font-bold px-6 py-3 rounded-full transition-colors">
               Place Another Order
             </button>
           </div>
@@ -169,13 +171,39 @@ export default function Home() {
               </div>
               <div>
                 <label className="block text-amber-400 text-sm mb-1">Pickup or Delivery? *</label>
-                <div className="flex gap-4">
+                <div className="flex gap-4 mb-3">
                   {(["Pickup", "Delivery"] as const).map((opt) => (
                     <button key={opt} onClick={() => setFulfillment(opt)} className={`flex-1 py-2 rounded-lg border font-semibold transition-colors ${fulfillment === opt ? "bg-amber-400 text-black border-amber-400" : "border-amber-800 text-amber-400 hover:border-amber-400"}`}>
                       {opt} {opt === "Delivery" ? "(orders $25+)" : "(San Jacinto)"}
                     </button>
                   ))}
                 </div>
+
+                {fulfillment === "Delivery" && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-amber-400 text-sm mb-1">Delivery Address *</label>
+                      <input
+                        value={deliveryAddress}
+                        onChange={(e) => setDeliveryAddress(e.target.value)}
+                        placeholder="123 Main St, City, CA 12345"
+                        className="w-full bg-[#1a0a00] border border-amber-800 rounded-lg px-4 py-2 text-amber-100 placeholder-amber-900 focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                    <div className="bg-[#1a0a00] border border-amber-900 rounded-xl p-4">
+                      <p className="text-amber-400 text-sm font-semibold mb-2">🚗 Delivery Fee Structure</p>
+                      <p className="text-amber-600 text-xs mb-3">Fees are based on driving distance from San Jacinto, CA. Amber will confirm your exact fee after you place your order.</p>
+                      <div className="grid grid-cols-2 gap-y-1.5 gap-x-4 text-xs">
+                        <span className="text-amber-300">0 – 5 miles</span><span className="text-amber-400 font-semibold">$3</span>
+                        <span className="text-amber-300">5 – 10 miles</span><span className="text-amber-400 font-semibold">$5</span>
+                        <span className="text-amber-300">10 – 15 miles</span><span className="text-amber-400 font-semibold">$8</span>
+                        <span className="text-amber-300">15 – 20 miles</span><span className="text-amber-400 font-semibold">$12</span>
+                        <span className="text-amber-300">20+ miles</span><span className="text-amber-500 font-semibold">Contact to confirm</span>
+                      </div>
+                      <p className="text-amber-700 text-xs mt-3">Delivery is only available on orders of $25 or more before the delivery fee.</p>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
